@@ -1,3 +1,6 @@
 [submodule "aom-sys/data/aom"]
 	path = aom-sys/data/aom
 	url = https://aomedia.googlesource.com/aom
+[submodule "aom-sys/libaom"]
+	path = aom-sys/libaom
+	url = https://github.com/darkskygit/libaom
