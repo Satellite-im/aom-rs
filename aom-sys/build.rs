@@ -38,7 +38,7 @@ fn linux_dynamic() {
 
 // uses a submodule to build aom
 fn build_aom() {
-    let build_dir = cmake::build("data/aom");
+    let build_dir = cmake::build("c/aom");
 
     println!(
         "cargo:info=aom source path used: {:?}.",
