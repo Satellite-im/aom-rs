@@ -12,10 +12,7 @@ fn format_write(builder: bindgen::Builder) -> String {
         .replace("/*!", "/*")
 }
 
-fn linux_dynamic() {
-    let libs = system_deps::Config::new().probe().unwrap();
-    let headers = libs.all_include_paths();
-
+fn bindgen(headers: Vec<&PathBuf>) {
     let mut builder = bindgen::builder()
         .header("data/aom.h")
         .blocklist_type("max_align_t")
@@ -28,17 +25,20 @@ fn linux_dynamic() {
 
     // Manually fix the comment so rustdoc won't try to pick them
     let s = format_write(builder);
-
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-
     let mut file = File::create(out_path.join("aom.rs")).unwrap();
-
     let _ = file.write(s.as_bytes());
+}
+
+fn linux_dynamic() {
+    let libs = system_deps::Config::new().probe().unwrap();
+    let headers = libs.all_include_paths();
+    bindgen(headers);
 }
 
 // uses a submodule to build aom
 fn build_aom() {
-    let build_dir = cmake::build("aom");
+    let build_dir = cmake::build("data/aom");
 
     println!(
         "cargo:info=aom source path used: {:?}.",
@@ -47,8 +47,10 @@ fn build_aom() {
             .expect("Could not canonicalise to absolute path")
     );
 
-    println!("cargo:rustc-link-search=native={}", build_dir.display());
+    println!("cargo:rustc-link-search=native={}/lib", build_dir.display());
     println!("cargo:rustc-link-lib=static=aom");
+
+    bindgen(vec![&build_dir]);
 }
 
 // uses a precompiled library
@@ -56,16 +58,18 @@ fn precompiled_aom(source_dir: &str) {
     println!("cargo:info=Linking aom lib: {}", source_dir);
     println!("cargo:rustc-link-search=native={}", source_dir);
     println!("cargo:rustc-link-lib=static=aom");
+
+    bindgen(vec![&PathBuf::from(source_dir)]);
 }
 
 // for Windows and MacOs, need to statically link.
 // also need to statically link for mobile (Android/IOS) but for that, also need to cross compile.
-// for cross compiling, use the AOM_PREBUILT environment variable.
+// for cross compiling, use the AOM_PRECOMPILED environment variable.
 // otherwise, build_aom will compile libaom from a git submodule and statically link it.
 fn main() {
     if env::var("AOM_LINUX_DYNAMIC").is_ok() {
         linux_dynamic();
-    } else if let Ok(source_dir) = env::var("AOM_PREBUILT") {
+    } else if let Ok(source_dir) = env::var("AOM_PRECOMPILED") {
         precompiled_aom(&source_dir);
     } else {
         build_aom();
