@@ -12,7 +12,7 @@ fn format_write(builder: bindgen::Builder) -> String {
         .replace("/*!", "/*")
 }
 
-fn main() {
+fn linux_dynamic() {
     let libs = system_deps::Config::new().probe().unwrap();
     let headers = libs.all_include_paths();
 
@@ -34,4 +34,40 @@ fn main() {
     let mut file = File::create(out_path.join("aom.rs")).unwrap();
 
     let _ = file.write(s.as_bytes());
+}
+
+// uses a submodule to build aom
+fn build_aom() {
+    let build_dir = cmake::build("aom");
+
+    println!(
+        "cargo:info=aom source path used: {:?}.",
+        build_dir
+            .canonicalize()
+            .expect("Could not canonicalise to absolute path")
+    );
+
+    println!("cargo:rustc-link-search=native={}", build_dir.display());
+    println!("cargo:rustc-link-lib=static=aom");
+}
+
+// uses a precompiled library
+fn precompiled_aom(source_dir: &str) {
+    println!("cargo:info=Linking aom lib: {}", source_dir);
+    println!("cargo:rustc-link-search=native={}", source_dir);
+    println!("cargo:rustc-link-lib=static=aom");
+}
+
+// for Windows and MacOs, need to statically link.
+// also need to statically link for mobile (Android/IOS) but for that, also need to cross compile.
+// for cross compiling, use the AOM_PREBUILT environment variable.
+// otherwise, build_aom will compile libaom from a git submodule and statically link it.
+fn main() {
+    if env::var("AOM_LINUX_DYNAMIC").is_ok() {
+        linux_dynamic();
+    } else if let Ok(source_dir) = env::var("AOM_PREBUILT") {
+        precompiled_aom(&source_dir);
+    } else {
+        build_aom();
+    }
 }
