@@ -30,7 +30,7 @@ fn bindgen(headers: Vec<&PathBuf>) {
     let _ = file.write(s.as_bytes());
 }
 
-fn linux_dynamic() {
+fn linux_shared_lib() {
     let libs = system_deps::Config::new().probe().unwrap();
     let headers = libs.all_include_paths();
     bindgen(headers);
@@ -65,14 +65,19 @@ fn precompiled_aom(source_dir: &str) {
 
 // for Windows and MacOs, need to statically link.
 // also need to statically link for mobile (Android/IOS) but for that, also need to cross compile.
-// for cross compiling, use the AOM_PRECOMPILED environment variable.
+// for cross compiling, use the precompiled setting.
 // otherwise, build_aom will compile libaom from a git submodule and statically link it.
 fn main() {
-    if env::var("AOM_LINUX_DYNAMIC").is_ok() {
-        linux_dynamic();
-    } else if let Ok(source_dir) = env::var("AOM_PRECOMPILED") {
-        precompiled_aom(&source_dir);
-    } else {
-        build_aom();
+    match env::var("LIB_AOM_MODE") {
+        Ok(mode) if mode == "shared-library" => {
+            linux_shared_lib();
+        }
+        Ok(mode) if mode == "precompiled" => {
+            let src_dir = env::var("LIB_AOM_DIR").unwrap();
+            precompiled_aom(&src_dir);
+        }
+        _ => {
+            build_aom();
+        }
     }
 }
